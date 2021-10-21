@@ -11,6 +11,7 @@
 
 static cv::Mat frame;
 static cv::Mat depth;
+static cv::Mat depth_colored;
 static cv::Mat scan;
 static std::vector<double> scans;
 static double tilt;                // in degrees
@@ -24,18 +25,27 @@ void depth_callback(freenect_device *, void *data, uint32_t)
     frame.setTo(0, frame == FREENECT_DEPTH_RAW_NO_VALUE);
     frame.convertTo(depth, CV_64F);
     frame /= (static_cast<double>(FREENECT_DEPTH_RAW_MAX_VALUE) / std::numeric_limits<unsigned short>::max());
-    // depth = 1.0 / (depth * -0.0030711016 + 3.3309495161);  // depth in meters
-    depth = depth / 2048 * depth2scan::MAX_DIST;
+    depth = depth / FREENECT_DEPTH_RAW_MAX_VALUE * depth2scan::MAX_DIST;
+    depth.convertTo(depth_colored, CV_32F);
+    cvtColor(depth_colored / depth2scan::MAX_DIST, depth_colored, cv::COLOR_GRAY2BGR);
 
     std::vector<double> z_mins;
     std::vector<unsigned> z_mins_indices;
     z_mins.reserve(depth.cols);
     z_mins_indices.reserve(depth.cols);
+
     const double ALPHA = DEG2RAD(tilt);
-    const double constant_cos = std::cos(M_PI / 2 - depth2scan::VERTICAL_FOV / 2 - ALPHA);
-    const double constant_sin = std::sin(M_PI / 2 - depth2scan::VERTICAL_FOV / 2);
-    const double ground_thresh = constant_sin / constant_cos * height - EPSILON_G;
-    const double negative_ground_thresh = constant_sin / constant_cos * height + EPSILON_G;
+    std::vector<double> thresh;
+    thresh.reserve(depth.rows);
+    const double c_y = depth.rows / 2;
+    for (int i = 0; i < depth.rows; ++i)
+    {
+        const double delta = DEG2RAD(depth2scan::VERTICAL_FOV) * (i - c_y - 0.5) / (depth.rows - 1);
+        const double cos_constant = std::cos(M_PI / 2 - delta - ALPHA);
+        const double sin_constant = std::sin(M_PI / 2 - delta);
+        thresh.push_back(height * sin_constant / cos_constant);
+    }
+
     for (int j = 0; j < depth.cols; ++j)
     {
         double z_min = std::numeric_limits<double>::max();
@@ -43,9 +53,11 @@ void depth_callback(freenect_device *, void *data, uint32_t)
         for (int i = 0; i < depth.rows; ++i)
         {
             const double z = depth.at<double>(i, j);
+            const double ground_thresh = thresh[i] - EPSILON_G;
             const bool is_ground = z >= ground_thresh;
-            const bool is_negative_ground = z >= negative_ground_thresh;
-            if (z != 0 && z <= z_min && (!is_ground || is_negative_ground))
+            //onst double negative_ground_thresh = thresh[i] + EPSILON_G;
+            //const bool is_negative_ground = z >= negative_ground_thresh;
+            if (z != 0 && z <= z_min  && !is_ground)
             {
                 z_min = z;
                 index = i;
@@ -54,11 +66,12 @@ void depth_callback(freenect_device *, void *data, uint32_t)
 
         z_mins.push_back(z_min);
         z_mins_indices.push_back(index);
+        if (index != -1)
+            cv::circle(depth_colored, cv::Point(j, index), 2, cv::Scalar(0, depth2scan::MAX_DIST, 0), cv::FILLED);
     }
 
     scans.clear();
     scans.reserve(depth.cols);
-    const double c_y = depth.rows / 2;
     for (unsigned z_min_index = 0; z_min_index < z_mins.size(); ++z_min_index)
     {
         const double z = z_mins[z_min_index];
@@ -108,6 +121,8 @@ int main(int argc, char **argv)
     tilt = std::atof(argv[1]);
     height = std::atof(argv[2]);
 
+    log_info("Tilt of %f degrees and height of %f cm", tilt, height * 100);
+
     freenect_context *f_ctx;
     if (freenect_init(&f_ctx, NULL) < 0)
     {
@@ -154,6 +169,7 @@ int main(int argc, char **argv)
 
     cv::namedWindow("scan");
     frame = cv::Mat(depth2scan::DEPTH_HEIGHT, depth2scan::DEPTH_WIDTH, CV_16UC1, cv::Scalar(0));
+    depth_colored = cv::Mat(depth2scan::DEPTH_HEIGHT, depth2scan::DEPTH_WIDTH, CV_32FC1, cv::Scalar(0));
     scan = cv::Mat(600, 600, CV_8UC1, cv::Scalar(128));
 
     int status = 0;
@@ -163,7 +179,7 @@ int main(int argc, char **argv)
         status = freenect_process_events(f_ctx);
         quit = cv::waitKey(10) == 113;  // q
         draw_scan(scan);
-        cv::imshow("scan", scan);
+        cv::imshow("scan", depth_colored);
         scan = 128;
     }
 
