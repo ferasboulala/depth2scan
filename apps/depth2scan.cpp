@@ -1,22 +1,22 @@
 #include "depth2scan.h"
-#include "thirdparty/log.h"
 
 #include <libfreenect/libfreenect.h>
-#include <opencv2/opencv.hpp>
 
 #include <cassert>
 #include <cmath>
 #include <limits>
+#include <opencv2/opencv.hpp>
 #include <vector>
+
+#include "thirdparty/log.h"
 
 static cv::Mat frame;
 static cv::Mat depth;
 static cv::Mat depth_colored;
 static cv::Mat scan;
 static std::vector<double> scans;
-static double tilt;                // in degrees
-static double height;              // in meters
-constexpr double EPSILON_G = 0.1;  // in meters
+static double tilt;    // in degrees
+static double height;  // in meters
 
 // This function can definitely be threaded
 void depth_callback(freenect_device *, void *data, uint32_t)
@@ -24,75 +24,15 @@ void depth_callback(freenect_device *, void *data, uint32_t)
     frame.data = reinterpret_cast<unsigned char *>(data);
     frame.setTo(0, frame == FREENECT_DEPTH_RAW_NO_VALUE);
     frame.convertTo(depth, CV_64F);
-    frame /= (static_cast<double>(FREENECT_DEPTH_RAW_MAX_VALUE) / std::numeric_limits<unsigned short>::max());
-    depth = depth / FREENECT_DEPTH_RAW_MAX_VALUE * depth2scan::MAX_DIST;
-    depth.convertTo(depth_colored, CV_32F);
-    cvtColor(depth_colored / depth2scan::MAX_DIST, depth_colored, cv::COLOR_GRAY2BGR);
-
-    std::vector<double> z_mins;
-    std::vector<unsigned> z_mins_indices;
-    z_mins.reserve(depth.cols);
-    z_mins_indices.reserve(depth.cols);
-
-    const double ALPHA = DEG2RAD(tilt);
-    std::vector<double> thresh;
-    thresh.reserve(depth.rows);
-    const double c_y = depth.rows / 2;
-    for (int i = 0; i < depth.rows; ++i)
-    {
-        const double delta = DEG2RAD(depth2scan::VERTICAL_FOV) * (i - c_y - 0.5) / (depth.rows - 1);
-        const double cos_constant = std::cos(M_PI / 2 - delta - ALPHA);
-        const double sin_constant = std::sin(M_PI / 2 - delta);
-        thresh.push_back(height * sin_constant / cos_constant);
-    }
-
-    for (int j = 0; j < depth.cols; ++j)
-    {
-        double z_min = std::numeric_limits<double>::max();
-        int index = -1;
-        for (int i = 0; i < depth.rows; ++i)
-        {
-            const double z = depth.at<double>(i, j);
-            const double ground_thresh = thresh[i] - EPSILON_G;
-            const bool is_ground = z >= ground_thresh;
-            //onst double negative_ground_thresh = thresh[i] + EPSILON_G;
-            //const bool is_negative_ground = z >= negative_ground_thresh;
-            if (z != 0 && z <= z_min  && !is_ground)
-            {
-                z_min = z;
-                index = i;
-            }
-        }
-
-        z_mins.push_back(z_min);
-        z_mins_indices.push_back(index);
-        if (index != -1)
-            cv::circle(depth_colored, cv::Point(j, index), 2, cv::Scalar(0, depth2scan::MAX_DIST, 0), cv::FILLED);
-    }
-
-    scans.clear();
-    scans.reserve(depth.cols);
-    for (unsigned z_min_index = 0; z_min_index < z_mins.size(); ++z_min_index)
-    {
-        const double z = z_mins[z_min_index];
-        if (z == std::numeric_limits<double>::max())
-        {
-            scans.push_back(z);
-            continue;
-        }
-
-        const unsigned j_min = z_mins_indices[z_min_index];
-        const double delta = DEG2RAD(depth2scan::VERTICAL_FOV) * (j_min - c_y - 0.5) / (depth.rows - 1);
-        const double d = z * std::sin(M_PI / 2 - ALPHA - delta) / std::sin(M_PI / 2 - delta);
-        scans.push_back(d);
-    }
+    depth = depth / FREENECT_DEPTH_RAW_MAX_VALUE * depth2scan::limits::MAX_DIST;
+    scans = depth2scan::depth2scan(depth, tilt, height, &depth_colored);
 }
 
 void draw_scan(cv::Mat &img)
 {
-    const double dtheta = depth2scan::HORIZONTAL_FOV / depth2scan::DEPTH_WIDTH;
-    double theta = depth2scan::HORIZONTAL_FOV + (90 - depth2scan::HORIZONTAL_FOV / 2);
-    assert(scans.size() == depth2scan::DEPTH_WIDTH);
+    const double dtheta = depth2scan::limits::HORIZONTAL_FOV / depth2scan::limits::DEPTH_WIDTH;
+    double theta = depth2scan::limits::HORIZONTAL_FOV + (90 - depth2scan::limits::HORIZONTAL_FOV / 2);
+    assert(scans.size() == depth2scan::limits::DEPTH_WIDTH);
     for (unsigned i = 0; i < scans.size(); ++i)
     {
         const double d = scans[i] * 100;  // in cm
@@ -168,8 +108,8 @@ int main(int argc, char **argv)
     freenect_set_tilt_degs(f_dev, tilt);
 
     cv::namedWindow("scan");
-    frame = cv::Mat(depth2scan::DEPTH_HEIGHT, depth2scan::DEPTH_WIDTH, CV_16UC1, cv::Scalar(0));
-    depth_colored = cv::Mat(depth2scan::DEPTH_HEIGHT, depth2scan::DEPTH_WIDTH, CV_32FC1, cv::Scalar(0));
+    frame = cv::Mat(depth2scan::limits::DEPTH_HEIGHT, depth2scan::limits::DEPTH_WIDTH, CV_16UC1, cv::Scalar(0));
+    depth_colored = cv::Mat(depth2scan::limits::DEPTH_HEIGHT, depth2scan::limits::DEPTH_WIDTH, CV_32FC1, cv::Scalar(0));
     scan = cv::Mat(600, 600, CV_8UC1, cv::Scalar(128));
 
     int status = 0;
@@ -179,7 +119,7 @@ int main(int argc, char **argv)
         status = freenect_process_events(f_ctx);
         quit = cv::waitKey(10) == 113;  // q
         draw_scan(scan);
-        cv::imshow("scan", depth_colored);
+        cv::imshow("scan", scan);
         scan = 128;
     }
 
