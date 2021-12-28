@@ -11,6 +11,7 @@ namespace depth2scan
 namespace limits
 {
 constexpr double MAX_DIST = 5;
+constexpr double MIN_DIST = 0.4;
 constexpr double VERTICAL_FOV = 46.6;
 constexpr double HORIZONTAL_FOV = 58.5;
 constexpr unsigned DEPTH_HEIGHT = 480;

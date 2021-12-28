@@ -119,7 +119,7 @@ int main(int argc, char **argv)
         status = freenect_process_events(f_ctx);
         quit = cv::waitKey(10) == 113;  // q
         draw_scan(scan);
-        cv::imshow("scan", scan);
+        cv::imshow("scan", depth_colored);
         scan = 128;
     }
 
