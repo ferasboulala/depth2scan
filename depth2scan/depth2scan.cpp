@@ -52,6 +52,8 @@ std::vector<double> depth2scan::depth2scan(cv::Mat &depth, double tilt, double h
 
     std::vector<double> scans;
     scans.reserve(depth.cols);
+    constexpr double RANGE = DEG2RAD(limits::HORIZONTAL_FOV);
+    constexpr double DTHETA = RANGE / limits::DEPTH_WIDTH;
     for (unsigned z_min_index = 0; z_min_index < z_mins.size(); ++z_min_index)
     {
         const double z = z_mins[z_min_index];
@@ -64,7 +66,9 @@ std::vector<double> depth2scan::depth2scan(cv::Mat &depth, double tilt, double h
         const unsigned j_min = z_mins_indices[z_min_index];
         const double delta = DEG2RAD(limits::VERTICAL_FOV) * (j_min - c_y - 0.5) / (depth.rows - 1);
         const double d = z * std::sin(M_PI / 2 - alpha - delta) / std::sin(M_PI / 2 - delta);
-        scans.push_back(d);
+        const double angle = RANGE / 2 - z_min_index * DTHETA;
+        const double d_polar = d / std::cos(angle);
+        scans.push_back(d_polar);
     }
 
     return scans;
