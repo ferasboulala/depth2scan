@@ -23,7 +23,7 @@ void depth_callback(freenect_device *, void *data, uint32_t)
 {
     frame.data = reinterpret_cast<unsigned char *>(data);
     frame.setTo(0, frame == FREENECT_DEPTH_RAW_NO_VALUE);
-    frame.convertTo(depth, CV_64F);
+    frame.convertTo(depth, CV_32F);
     depth = depth / FREENECT_DEPTH_RAW_MAX_VALUE * depth2scan::limits::MAX_DIST;
     scans = depth2scan::depth2scan(depth, tilt, height, &depth_colored);
 }
@@ -36,7 +36,7 @@ void draw_scan(cv::Mat &img)
     for (unsigned i = 0; i < scans.size(); ++i)
     {
         const double d = scans[i] * 100;  // in cm
-        if (d != std::numeric_limits<double>::max())
+        if (d != std::numeric_limits<float>::max())
         {
             const double dx = std::cos(DEG2RAD(theta));
             const double dy = -std::sin(DEG2RAD(theta));

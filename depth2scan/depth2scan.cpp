@@ -27,12 +27,12 @@ std::vector<double> depth2scan::depth2scan(cv::Mat &depth, double tilt, double h
 
     for (int j = 0; j < depth.cols; ++j)
     {
-        double z_min = std::numeric_limits<double>::max();
+        double z_min = std::numeric_limits<float>::max();
         int index = -1;
         for (int i = 0; i < depth.rows; ++i)
         {
             constexpr double EPSILON_G = 0.1;
-            const double z = depth.at<double>(i, j);
+            const double z = depth.at<float>(i, j);
             const double ground_thresh = thresh[i] - EPSILON_G;
             const bool is_ground = z >= ground_thresh;
             // const double negative_ground_thresh = thresh[i] + EPSILON_G;
@@ -57,7 +57,7 @@ std::vector<double> depth2scan::depth2scan(cv::Mat &depth, double tilt, double h
     for (unsigned z_min_index = 0; z_min_index < z_mins.size(); ++z_min_index)
     {
         const double z = z_mins[z_min_index];
-        if (z == std::numeric_limits<double>::max())
+        if (z == std::numeric_limits<float>::max())
         {
             scans.push_back(z);
             continue;
