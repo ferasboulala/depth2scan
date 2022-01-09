@@ -2,6 +2,7 @@
 
 std::vector<double> depth2scan::depth2scan(cv::Mat &depth, double tilt, double height, cv::Mat *const canvas)
 {
+    tilt += 2; // Necessary to account for kinect tilt error (usually the case)
     if (canvas)
     {
         depth.convertTo(*canvas, CV_32F, 1.0f / limits::MAX_DIST);
@@ -27,16 +28,14 @@ std::vector<double> depth2scan::depth2scan(cv::Mat &depth, double tilt, double h
 
     for (int j = 0; j < depth.cols; ++j)
     {
-        double z_min = std::numeric_limits<float>::max();
+        float z_min = std::numeric_limits<float>::max();
         int index = -1;
         for (int i = 0; i < depth.rows; ++i)
         {
-            constexpr double EPSILON_G = 0.1;
-            const double z = depth.at<float>(i, j);
+            constexpr double EPSILON_G = 0.05;
+            const float z = depth.at<float>(i, j);
             const double ground_thresh = thresh[i] - EPSILON_G;
             const bool is_ground = z >= ground_thresh;
-            // const double negative_ground_thresh = thresh[i] + EPSILON_G;
-            // const bool is_negative_ground = z >= negative_ground_thresh;
             if (z != 0 && z <= z_min && !is_ground)
             {
                 z_min = z;
@@ -54,19 +53,19 @@ std::vector<double> depth2scan::depth2scan(cv::Mat &depth, double tilt, double h
     scans.reserve(depth.cols);
     constexpr double RANGE = DEG2RAD(limits::HORIZONTAL_FOV);
     constexpr double DTHETA = RANGE / limits::DEPTH_WIDTH;
-    for (unsigned z_min_index = 0; z_min_index < z_mins.size(); ++z_min_index)
+    for (unsigned col = 0; col < z_mins.size(); ++col)
     {
-        const double z = z_mins[z_min_index];
+        const double z = z_mins[col];
         if (z == std::numeric_limits<float>::max())
         {
-            scans.push_back(z);
+            scans.push_back(0);
             continue;
         }
 
-        const unsigned j_min = z_mins_indices[z_min_index];
+        const unsigned j_min = z_mins_indices[col];
         const double delta = DEG2RAD(limits::VERTICAL_FOV) * (j_min - c_y - 0.5) / (depth.rows - 1);
         const double d = z * std::sin(M_PI / 2 - alpha - delta) / std::sin(M_PI / 2 - delta);
-        const double angle = RANGE / 2 - z_min_index * DTHETA;
+        const double angle = RANGE / 2 - col * DTHETA;
         const double d_polar = d / std::cos(angle);
         scans.push_back(d_polar);
     }

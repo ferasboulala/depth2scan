@@ -20,6 +20,7 @@ constexpr unsigned DEPTH_WIDTH = 640;
 }  // namespace limits
 
 // TODO: Check if it is worth threading.
+// TODO: Make it stateful to avoid computing intermediary states
 std::vector<double> depth2scan(cv::Mat &depth, double tilt, double height, cv::Mat *const canvas = nullptr);
 
 }  // namespace depth2scan
