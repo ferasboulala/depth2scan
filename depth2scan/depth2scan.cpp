@@ -1,74 +1,45 @@
 #include "depth2scan.h"
 
-std::vector<double> depth2scan::depth2scan(cv::Mat &depth, double tilt, double height, cv::Mat *const canvas)
+#include <cassert>
+
+namespace depth2scan
 {
-    tilt += 2; // Necessary to account for kinect tilt error (usually the case)
-    if (canvas)
-    {
-        depth.convertTo(*canvas, CV_32F, 1.0f / limits::MAX_DIST);
-        cvtColor(*canvas, *canvas, cv::COLOR_GRAY2BGR);
-    }
+Converter::Converter(const CameraInfo &info) : m_info(info), m_tilt(0), m_height(1), m_epsilon(5e-2)
+{
+    assert(info.max_dist > info.min_dist);
+    recompute_stateful_parameters(m_tilt, m_height, m_epsilon);
+}
 
-    std::vector<double> z_mins;
-    std::vector<unsigned> z_mins_indices;
-    z_mins.reserve(depth.cols);
-    z_mins_indices.reserve(depth.cols);
+bool Converter::parameters_changed(double tilt, double height, double epsilon) const
+{
+    return tilt != m_tilt || height != m_height || epsilon != m_epsilon;
+}
 
-    std::vector<double> thresh;
-    thresh.reserve(depth.rows);
-    const double c_y = depth.rows / 2;
+void Converter::recompute_stateful_parameters(double tilt, double height, double epsilon)
+{
+    m_ground_thresholds.clear();
+    m_polar_factors.clear();
+    m_angles.clear();
+
+    const double cy = m_info.rows / 2;
     const double alpha = DEG2RAD(tilt);
-    for (int i = 0; i < depth.rows; ++i)
+    const double vfov_rad = DEG2RAD(m_info.vfov);
+    for (unsigned row = 0; row < m_info.rows; ++row)
     {
-        const double delta = DEG2RAD(limits::VERTICAL_FOV) * (i - c_y - 0.5) / (depth.rows - 1);
+        const double delta = vfov_rad * (row - cy - 0.5) / (m_info.rows - 1);
         const double cos_constant = std::cos(M_PI / 2 - delta - alpha);
         const double sin_constant = std::sin(M_PI / 2 - delta);
-        thresh.push_back(height * sin_constant / cos_constant);
+        m_ground_thresholds.push_back(height * sin_constant / cos_constant - epsilon);
     }
 
-    for (int j = 0; j < depth.cols; ++j)
+    const double hfov_rad = DEG2RAD(m_info.hfov);
+    const double hfov_step = hfov_rad / m_info.cols;
+    for (unsigned col = 0; col < m_info.cols; ++col)
     {
-        float z_min = std::numeric_limits<float>::max();
-        int index = -1;
-        for (int i = 0; i < depth.rows; ++i)
-        {
-            constexpr double EPSILON_G = 0.05;
-            const float z = depth.at<float>(i, j);
-            const double ground_thresh = thresh[i] - EPSILON_G;
-            const bool is_ground = z >= ground_thresh;
-            if (z != 0 && z <= z_min && !is_ground)
-            {
-                z_min = z;
-                index = i;
-            }
-        }
-
-        z_mins.push_back(z_min);
-        z_mins_indices.push_back(index);
-        if (index != -1 && canvas)
-            cv::circle(*canvas, cv::Point(j, index), 2, cv::Scalar(0, limits::MAX_DIST, 0), cv::FILLED);
+        const double angle = hfov_rad / 2 - col * hfov_step;
+        m_angles.push_back(angle);
+        m_polar_factors.push_back(1.0 / std::cos(angle));
     }
-
-    std::vector<double> scans;
-    scans.reserve(depth.cols);
-    constexpr double RANGE = DEG2RAD(limits::HORIZONTAL_FOV);
-    constexpr double DTHETA = RANGE / limits::DEPTH_WIDTH;
-    for (unsigned col = 0; col < z_mins.size(); ++col)
-    {
-        const double z = z_mins[col];
-        if (z == std::numeric_limits<float>::max())
-        {
-            scans.push_back(0);
-            continue;
-        }
-
-        const unsigned j_min = z_mins_indices[col];
-        const double delta = DEG2RAD(limits::VERTICAL_FOV) * (j_min - c_y - 0.5) / (depth.rows - 1);
-        const double d = z * std::sin(M_PI / 2 - alpha - delta) / std::sin(M_PI / 2 - delta);
-        const double angle = RANGE / 2 - col * DTHETA;
-        const double d_polar = d / std::cos(angle);
-        scans.push_back(d_polar);
-    }
-
-    return scans;
 }
+
+}  // namespace depth2scan

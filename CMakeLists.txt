@@ -19,13 +19,14 @@ add_library(depth2scan STATIC
     depth2scan/depth2scan.cpp
 )
 target_include_directories(depth2scan PRIVATE depth2scan ${OpenCV_INCLUDE_DIRS})
+target_link_libraries(depth2scan ${OpenCV_LIBRARIES})
 
 
 macro(app progname source)
     add_executable(${progname} ${source} apps/thirdparty/log.cpp)
     target_include_directories(${progname} PRIVATE ${OpenCV_INCLUDE_DIRS} depth2scan)
-    target_link_libraries(${progname} depth2scan ${FREENECT_LIBRARIES} ${OpenCV_LIBRARIES}
-        -lopencv_core -lopencv_highgui -lopencv_imgproc)
+    target_link_libraries(${progname} ${FREENECT_LIBRARIES} ${OpenCV_LIBRARIES}
+        -lopencv_core -lopencv_highgui -lopencv_imgproc depth2scan)
 endmacro()
 
-app("depth2scan_kinect" "apps/depth2scan.cpp")
+app(depth2scan_kinect apps/depth2scan_kinect.cpp)
