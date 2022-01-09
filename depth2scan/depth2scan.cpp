@@ -4,8 +4,8 @@ std::vector<double> depth2scan::depth2scan(cv::Mat &depth, double tilt, double h
 {
     if (canvas)
     {
-        depth.convertTo(*canvas, CV_32F);
-        cvtColor(*canvas / limits::MAX_DIST, *canvas, cv::COLOR_GRAY2BGR);
+        depth.convertTo(*canvas, CV_32F, 1.0f / limits::MAX_DIST);
+        cvtColor(*canvas, *canvas, cv::COLOR_GRAY2BGR);
     }
 
     std::vector<double> z_mins;

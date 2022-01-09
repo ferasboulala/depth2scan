@@ -22,9 +22,7 @@ static double height;  // in meters
 void depth_callback(freenect_device *, void *data, uint32_t)
 {
     frame.data = reinterpret_cast<unsigned char *>(data);
-    frame.setTo(0, frame == FREENECT_DEPTH_RAW_NO_VALUE);
-    frame.convertTo(depth, CV_32F);
-    depth = depth / FREENECT_DEPTH_RAW_MAX_VALUE * depth2scan::limits::MAX_DIST;
+    frame.convertTo(depth, CV_32F, 1 / 1000.0f);
     scans = depth2scan::depth2scan(depth, tilt, height, &depth_colored);
 }
 
@@ -95,7 +93,7 @@ int main(int argc, char **argv)
     freenect_set_led(f_dev, LED_BLINK_GREEN);
     freenect_set_depth_callback(f_dev, depth_callback);
     const int res =
-        freenect_set_depth_mode(f_dev, freenect_find_depth_mode(FREENECT_RESOLUTION_MEDIUM, FREENECT_DEPTH_11BIT));
+        freenect_set_depth_mode(f_dev, freenect_find_depth_mode(FREENECT_RESOLUTION_MEDIUM, FREENECT_DEPTH_MM));
     if (res < 0)
     {
         log_error("Could not set resolution");
@@ -119,7 +117,7 @@ int main(int argc, char **argv)
         status = freenect_process_events(f_ctx);
         quit = cv::waitKey(10) == 113;  // q
         draw_scan(scan);
-        cv::imshow("scan", scan);
+        cv::imshow("scan", depth_colored);
         scan = 128;
     }
 
