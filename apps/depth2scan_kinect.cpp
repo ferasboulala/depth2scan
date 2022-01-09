@@ -39,7 +39,8 @@ void draw_scan(cv::Mat &img)
 
     for (unsigned i = 0; i < scans.size(); ++i)
     {
-        const auto &[angle, distance] = scans[i];
+        auto [angle, distance] = scans[i];
+        angle += M_PI / 2;
         if (distance != std::numeric_limits<double>::max())
         {
             // in cm
@@ -129,7 +130,7 @@ int main(int argc, char **argv)
         status = freenect_process_events(f_ctx);
         quit = cv::waitKey(10) == 113;  // q
         draw_scan(scan);
-        cv::imshow("scan", depth_colored);
+        cv::imshow("scan", scan);
         scan = 128;
     }
 

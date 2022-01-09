@@ -36,7 +36,7 @@ void Converter::recompute_stateful_parameters(double tilt, double height, double
     const double hfov_step = hfov_rad / m_info.cols;
     for (unsigned col = 0; col < m_info.cols; ++col)
     {
-        const double angle = hfov_rad / 2 - col * hfov_step;
+        const double angle = hfov_rad / 2 -col * hfov_step;
         m_angles.push_back(angle);
         m_polar_factors.push_back(1.0 / std::cos(angle));
     }

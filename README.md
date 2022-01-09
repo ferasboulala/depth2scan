@@ -8,6 +8,7 @@ Converts a depth image into a laser scan. No ROS dependencies. Only OpenCV.
 <img src=screenshots/0_tilt_table.png>
 <img src=screenshots/10_tilt.png>
 <img src=screenshots/negative_10_tilt.png>
+<img src=screenshots/scan.png>
 </p>
 
 # Parameters

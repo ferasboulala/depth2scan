@@ -79,7 +79,7 @@ public:
         const double vfov_rad = DEG2RAD(m_info.vfov);
         const double cy = m_info.rows / 2;
         const double alpha = DEG2RAD(tilt);
-        for (unsigned col = 0; col < z_mins.size(); ++col)
+        for (int col = z_mins.size() - 1; col >= 0; --col)
         {
             const double z = z_mins[col];
             if (z == std::numeric_limits<double>::max())
