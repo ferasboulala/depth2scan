@@ -114,6 +114,7 @@ int main(int argc, char **argv)
 
     freenect_start_depth(f_dev);
     freenect_set_tilt_degs(f_dev, tilt);
+    tilt *= -1;
 
     cv::namedWindow("scan");
     frame = cv::Mat(DEPTH_HEIGHT, DEPTH_WIDTH, CV_16UC1, cv::Scalar(0));
