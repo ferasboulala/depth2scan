@@ -84,7 +84,7 @@ public:
             const double z = z_mins[col];
             if (z == std::numeric_limits<double>::max())
             {
-                scans.emplace_back(z, z);
+                scans.emplace_back(m_angles[col], z);
                 continue;
             }
 
