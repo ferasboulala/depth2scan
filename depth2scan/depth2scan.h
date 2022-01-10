@@ -30,7 +30,7 @@ public:
     std::vector<std::tuple<double, double>> convert(
         const cv::Mat &depth, double tilt, double height, double epsilon = 5e-2, cv::Mat *const canvas = nullptr)
     {
-        assert(depth.cols == m_info.cols && depth.rows == m_info.rows);
+        assert(static_cast<unsigned>(depth.cols) == m_info.cols && static_cast<unsigned>(depth.rows) == m_info.rows);
 
         // Necessary to account for kinect tilt error (usually the case)
         tilt += 2;
